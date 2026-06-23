@@ -16,4 +16,11 @@ interface ApiService {
     suspend fun getDashboard(
         @Header("Authorization") token: String
     ): DashboardResponse
+
+    @retrofit2.http.Multipart
+    @POST("/upload-screenshot")
+    suspend fun uploadScreenshot(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Part file: okhttp3.MultipartBody.Part
+    ): TransactionResponse
 }
