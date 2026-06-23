@@ -85,7 +85,12 @@ def chat_transaction(request: schemas.ChatRequest, current_user: models.User = D
         extracted_data = json.loads(response.choices[0].message.content)
 
         # Fix BUG 11: Validate amount is positive
-        if not isinstance(extracted_data.get("amount"), (int, float)) or extracted_data["amount"] <= 0:
+        try:
+            amount = float(extracted_data.get("amount", 0))
+            if amount <= 0:
+                raise ValueError()
+            extracted_data["amount"] = amount
+        except (ValueError, TypeError):
             raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from your message.")
         
         # Create transaction in DB
@@ -165,7 +170,12 @@ def upload_screenshot(file: UploadFile = File(...), current_user: models.User = 
         extracted_data = json.loads(response.choices[0].message.content)
 
         # Fix BUG 11: Validate amount is positive
-        if not isinstance(extracted_data.get("amount"), (int, float)) or extracted_data["amount"] <= 0:
+        try:
+            amount = float(extracted_data.get("amount", 0))
+            if amount <= 0:
+                raise ValueError()
+            extracted_data["amount"] = amount
+        except (ValueError, TypeError):
             raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from the screenshot.")
         
         new_transaction = models.Transaction(
