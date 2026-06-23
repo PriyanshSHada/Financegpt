@@ -96,11 +96,17 @@ def get_dashboard(current_user: models.User = Depends(get_current_user), db: Ses
     total_expense = sum(t.amount for t in transactions if t.type == models.TransactionType.EXPENSE)
     total_income = sum(t.amount for t in transactions if t.type == models.TransactionType.INCOME)
     
+    category_expenses = {}
+    for t in transactions:
+        if t.type == models.TransactionType.EXPENSE:
+            category_expenses[t.category] = category_expenses.get(t.category, 0) + t.amount
+    
     return {
         "balance": total_income - total_expense,
         "total_income": total_income,
         "total_expense": total_expense,
-        "transactions_count": len(transactions)
+        "transactions_count": len(transactions),
+        "category_expenses": category_expenses
     }
 
 @app.post("/budgets", response_model=schemas.BudgetResponse)

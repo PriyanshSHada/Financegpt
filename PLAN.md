@@ -56,10 +56,17 @@ c:\Project\finance gpt\
 
 ---
 
-## Next Steps for Execution
+## Next Steps for Execution (Completed)
 - [x] Clean up old Next.js files
 - [x] Initialize FastAPI environment and Database connection
-- [ ] Build FastAPI Models and Endpoints (Chat, Dashboard, Auth)
-- [ ] Initialize Android Jetpack Compose Project
-- [ ] Connect Android UI to FastAPI Backend
-- [ ] Test the End-to-End Chat extraction flow
+- [x] Build FastAPI Models and Endpoints (Chat, Dashboard, Auth)
+- [x] Initialize Android Jetpack Compose Project
+- [x] Connect Android UI to FastAPI Backend
+- [x] Test the End-to-End Chat extraction flow
+- [x] Build Dashboard UI
+- [x] Build UPI Screenshot Scanner UI
+
+## Phase 2 (Current Focus)
+- [ ] Build Login & Registration UI on Android (replacing dummy token)
+- [ ] Build Budget Tracking UI (view budgets, progress bars, and percentage warnings)
+- [ ] Implement Income vs Expense visual charts on the Dashboard

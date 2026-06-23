@@ -7,6 +7,15 @@ class UserCreate(BaseModel):
     username: str
     password: str
 
+class DashboardResponse(BaseModel):
+    balance: float
+    total_income: float
+    total_expense: float
+    transactions_count: int
+    category_expenses: dict[str, float]
+    class Config:
+        from_attributes = True
+
 class UserResponse(BaseModel):
     id: int
     username: str
