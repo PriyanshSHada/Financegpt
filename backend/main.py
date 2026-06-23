@@ -1,15 +1,26 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from . import models, schemas, auth
 from .database import engine, get_db
 import os
 import json
+import base64
 from openai import OpenAI
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FinanceGPT API")
+
+# Fix BUG 2: Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Tighten this in production to specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -72,6 +83,10 @@ def chat_transaction(request: schemas.ChatRequest, current_user: models.User = D
         )
         
         extracted_data = json.loads(response.choices[0].message.content)
+
+        # Fix BUG 11: Validate amount is positive
+        if not isinstance(extracted_data.get("amount"), (int, float)) or extracted_data["amount"] <= 0:
+            raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from your message.")
         
         # Create transaction in DB
         new_transaction = models.Transaction(
@@ -86,6 +101,8 @@ def chat_transaction(request: schemas.ChatRequest, current_user: models.User = D
         db.refresh(new_transaction)
         return new_transaction
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process chat: {str(e)}")
 
@@ -125,9 +142,6 @@ def create_budget(budget: schemas.BudgetCreate, current_user: models.User = Depe
 def get_budgets(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(models.Budget).filter(models.Budget.owner_id == current_user.id).all()
 
-from fastapi import UploadFile, File
-import base64
-
 @app.post("/upload-screenshot", response_model=schemas.TransactionResponse)
 def upload_screenshot(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
@@ -149,6 +163,10 @@ def upload_screenshot(file: UploadFile = File(...), current_user: models.User = 
         )
         
         extracted_data = json.loads(response.choices[0].message.content)
+
+        # Fix BUG 11: Validate amount is positive
+        if not isinstance(extracted_data.get("amount"), (int, float)) or extracted_data["amount"] <= 0:
+            raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from the screenshot.")
         
         new_transaction = models.Transaction(
             amount=extracted_data["amount"],
@@ -162,5 +180,7 @@ def upload_screenshot(file: UploadFile = File(...), current_user: models.User = 
         db.refresh(new_transaction)
         return new_transaction
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process screenshot: {str(e)}")

@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.financegpt.network.RetrofitClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -60,9 +62,13 @@ fun ScreenshotUploadScreen(token: String) {
                     uploadStatus = "Uploading and analyzing..."
                     coroutineScope.launch {
                         try {
-                            val inputStream = context.contentResolver.openInputStream(uri)
-                            val bytes = inputStream?.readBytes() ?: ByteArray(0)
-                            inputStream?.close()
+                            // Fix BUG 8: Move file I/O off the main thread
+                            val bytes = withContext(Dispatchers.IO) {
+                                val inputStream = context.contentResolver.openInputStream(uri)
+                                val data = inputStream?.readBytes() ?: ByteArray(0)
+                                inputStream?.close()
+                                data
+                            }
 
                             val requestFile = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
                             val body = MultipartBody.Part.createFormData("file", "screenshot.jpg", requestFile)

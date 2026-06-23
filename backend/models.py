@@ -25,7 +25,7 @@ class Transaction(Base):
     amount = Column(Float, nullable=False)
     category = Column(String, index=True)
     description = Column(String)
-    date = Column(DateTime, default=datetime.datetime.utcnow)
+    date = Column(DateTime(timezone=True), default=lambda: datetime.datetime.now(datetime.timezone.utc))
     type = Column(Enum(TransactionType), default=TransactionType.EXPENSE)
     
     owner_id = Column(Integer, ForeignKey("users.id"))

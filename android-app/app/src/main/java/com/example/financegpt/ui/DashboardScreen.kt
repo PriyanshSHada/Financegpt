@@ -13,6 +13,9 @@ import com.example.financegpt.network.BudgetResponse
 import com.example.financegpt.network.DashboardResponse
 import com.example.financegpt.network.RetrofitClient
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 @Composable
 fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
@@ -27,13 +30,11 @@ fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        coroutineScope.launch {
-            try {
-                dashboardData = RetrofitClient.apiService.getDashboard("Bearer $token")
-                budgets = RetrofitClient.apiService.getBudgets("Bearer $token")
-            } catch (e: Exception) {
-                errorMessage = e.message
-            }
+        try {
+            dashboardData = RetrofitClient.apiService.getDashboard("Bearer $token")
+            budgets = RetrofitClient.apiService.getBudgets("Bearer $token")
+        } catch (e: Exception) {
+            errorMessage = e.message
         }
     }
 
@@ -77,6 +78,14 @@ fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
                         Text(text = "₹${dashboardData!!.total_expense}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
                     }
                 }
+            }
+
+            if (dashboardData!!.total_income > 0 || dashboardData!!.total_expense > 0) {
+                Spacer(modifier = Modifier.height(16.dp))
+                IncomeExpenseDonutChart(
+                    income = dashboardData!!.total_income,
+                    expense = dashboardData!!.total_expense
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -157,5 +166,57 @@ fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
                 TextButton(onClick = { showBudgetDialog = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+fun IncomeExpenseDonutChart(income: Double, expense: Double) {
+    val total = income + expense
+    if (total <= 0.0) return
+
+    val incomeAngle = (income / total) * 360f
+    val expenseAngle = (expense / total) * 360f
+
+    val incomeColor = MaterialTheme.colorScheme.primary
+    val expenseColor = MaterialTheme.colorScheme.error
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 16.dp)) {
+        Text(text = "Income vs Expense", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.size(160.dp)) {
+                // Background track
+                drawArc(
+                    color = incomeColor.copy(alpha = 0.2f),
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 40f, cap = StrokeCap.Round)
+                )
+
+                // Income Arc
+                drawArc(
+                    color = incomeColor,
+                    startAngle = -90f,
+                    sweepAngle = incomeAngle.toFloat(),
+                    useCenter = false,
+                    style = Stroke(width = 40f, cap = StrokeCap.Round)
+                )
+
+                // Expense Arc
+                drawArc(
+                    color = expenseColor,
+                    startAngle = -90f + incomeAngle.toFloat(),
+                    sweepAngle = expenseAngle.toFloat(),
+                    useCenter = false,
+                    style = Stroke(width = 40f, cap = StrokeCap.Round)
+                )
+            }
+            Text(
+                text = "${((expense / total) * 100).toInt()}% Spent",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
     }
 }

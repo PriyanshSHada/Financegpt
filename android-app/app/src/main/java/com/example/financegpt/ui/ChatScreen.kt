@@ -3,6 +3,7 @@ package com.example.financegpt.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,13 +17,25 @@ import kotlinx.coroutines.launch
 fun ChatScreen(token: String) {
     var messages by remember { mutableStateOf(listOf<String>()) }
     var inputText by remember { mutableStateOf("") }
+    // Fix BUG 5: Use LazyListState to auto-scroll to bottom
+    val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // Fix BUG 5: Scroll to the last item whenever messages list changes
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(text = "FinanceGPT Chat", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
         
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            state = listState  // Fix BUG 5: attach listState
+        ) {
             items(messages) { message ->
                 Surface(
                     color = if (message.startsWith("You:")) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
@@ -53,7 +66,7 @@ fun ChatScreen(token: String) {
                                 token = "Bearer $token",
                                 request = ChatRequest(userMessage)
                             )
-                            val botResponse = "Saved! Amount: ${response.amount}, Category: ${response.category}, Type: ${response.type}"
+                            val botResponse = "Saved! Amount: ₹${response.amount}, Category: ${response.category}, Type: ${response.type}"
                             messages = messages + "FinanceGPT: $botResponse"
                         } catch (e: Exception) {
                             messages = messages + "FinanceGPT: Error - ${e.message}"

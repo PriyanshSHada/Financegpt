@@ -66,7 +66,7 @@ c:\Project\finance gpt\
 - [x] Build Dashboard UI
 - [x] Build UPI Screenshot Scanner UI
 
-## Phase 2 (Current Focus)
-- [ ] Build Login & Registration UI on Android (replacing dummy token)
-- [ ] Build Budget Tracking UI (view budgets, progress bars, and percentage warnings)
-- [ ] Implement Income vs Expense visual charts on the Dashboard
+## Phase 2 (Completed)
+- [x] Build Login & Registration UI on Android (replacing dummy token)
+- [x] Build Budget Tracking UI (view budgets, progress bars, and percentage warnings)
+- [x] Implement Income vs Expense visual charts on the Dashboard
