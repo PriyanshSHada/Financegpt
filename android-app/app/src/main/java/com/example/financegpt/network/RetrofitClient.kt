@@ -6,8 +6,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    // 10.0.2.2 is the special alias to your host loopback interface from the Android emulator
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    // Production Northflank backend
+    private const val BASE_URL = "https://p01--financegpt--wpzfs7yrpv56.code.run/"
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
