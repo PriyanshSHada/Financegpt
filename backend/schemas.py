@@ -57,3 +57,7 @@ class BudgetResponse(BudgetBase):
     owner_id: int
     class Config:
         from_attributes = True
+
+class ChatResponse(BaseModel):
+    reply: str
+    transaction: Optional[TransactionResponse] = None

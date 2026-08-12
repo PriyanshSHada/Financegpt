@@ -2,6 +2,11 @@ package com.example.financegpt.network
 
 data class ChatRequest(val message: String)
 
+data class ChatResponse(
+    val reply: String,
+    val transaction: TransactionResponse? = null
+)
+
 data class TransactionResponse(
     val id: Int,
     val amount: Double,

@@ -63,11 +63,13 @@ fun ChatScreen(token: String) {
                     coroutineScope.launch {
                         try {
                             val response = RetrofitClient.apiService.sendChatMessage(
-                                token = "Bearer $token",
                                 request = ChatRequest(userMessage)
                             )
-                            val botResponse = "Saved! Amount: ₹${response.amount}, Category: ${response.category}, Type: ${response.type}"
-                            messages = messages + "FinanceGPT: $botResponse"
+                            messages = messages + "FinanceGPT: ${response.reply}"
+                            if (response.transaction != null) {
+                                val savedResponse = "Saved! Amount: ₹${response.transaction.amount}, Category: ${response.transaction.category}, Type: ${response.transaction.type}"
+                                messages = messages + "FinanceGPT: $savedResponse"
+                            }
                         } catch (e: Exception) {
                             messages = messages + "FinanceGPT: Error - ${e.message}"
                         }

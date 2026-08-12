@@ -8,6 +8,18 @@ import os
 import json
 import base64
 from openai import OpenAI
+from pydantic import BaseModel, Field, ValidationError
+from typing import Optional, Literal
+
+class ExtractedTransaction(BaseModel):
+    amount: float
+    category: str = "Other"
+    description: str = "Unknown"
+    type: Literal["expense", "income"] = "expense"
+
+class ChatGPTResponse(BaseModel):
+    reply: str
+    extracted_transaction: Optional[ExtractedTransaction] = None
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -69,42 +81,42 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/chat", response_model=schemas.TransactionResponse)
+@app.post("/chat", response_model=schemas.ChatResponse)
 def chat_transaction(request: schemas.ChatRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Call GPT-4o Mini to extract transaction details
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a financial extraction AI. Extract the transaction details from the user's message. Output JSON strictly matching this schema: {\"amount\": float, \"category\": string (e.g. Food, Travel, Rent, Salary), \"description\": string, \"type\": \"expense\" or \"income\"}"},
+                {"role": "system", "content": "You are a conversational financial assistant. Reply to the user naturally. If the user mentions a transaction (income or expense), extract it. Output JSON strictly matching this schema: {\"reply\": \"Your conversational response\", \"extracted_transaction\": {\"amount\": float, \"category\": string, \"description\": string, \"type\": \"expense\" or \"income\"} }. If no transaction is mentioned, set \"extracted_transaction\" to null."},
                 {"role": "user", "content": request.message}
             ],
             response_format={"type": "json_object"}
         )
         
         extracted_data = json.loads(response.choices[0].message.content)
-
-        # Fix BUG 11: Validate amount is positive
-        try:
-            amount = float(extracted_data.get("amount", 0))
-            if amount <= 0:
-                raise ValueError()
-            extracted_data["amount"] = amount
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from your message.")
         
-        # Create transaction in DB
-        new_transaction = models.Transaction(
-            amount=extracted_data["amount"],
-            category=extracted_data["category"],
-            description=extracted_data["description"],
-            type=models.TransactionType(extracted_data["type"]),
-            owner_id=current_user.id
-        )
-        db.add(new_transaction)
-        db.commit()
-        db.refresh(new_transaction)
-        return new_transaction
+        try:
+            parsed_data = ChatGPTResponse(**extracted_data)
+        except ValidationError:
+            return {"reply": "I processed your request but couldn't understand the exact transaction details.", "transaction": None}
+
+        reply = parsed_data.reply
+        transaction_data = parsed_data.extracted_transaction
+
+        new_transaction = None
+        if transaction_data and transaction_data.amount > 0:
+            new_transaction = models.Transaction(
+                amount=transaction_data.amount,
+                category=transaction_data.category,
+                description=transaction_data.description,
+                type=models.TransactionType(transaction_data.type),
+                owner_id=current_user.id
+            )
+            db.add(new_transaction)
+            db.commit()
+            db.refresh(new_transaction)
+
+        return {"reply": reply, "transaction": new_transaction}
 
     except HTTPException:
         raise
@@ -113,21 +125,37 @@ def chat_transaction(request: schemas.ChatRequest, current_user: models.User = D
 
 @app.get("/dashboard")
 def get_dashboard(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    transactions = db.query(models.Transaction).filter(models.Transaction.owner_id == current_user.id).all()
+    from sqlalchemy import func
     
-    total_expense = sum(t.amount for t in transactions if t.type == models.TransactionType.EXPENSE)
-    total_income = sum(t.amount for t in transactions if t.type == models.TransactionType.INCOME)
+    # Calculate totals using DB aggregates
+    expense_result = db.query(func.sum(models.Transaction.amount)).filter(
+        models.Transaction.owner_id == current_user.id,
+        models.Transaction.type == models.TransactionType.EXPENSE
+    ).scalar()
+    total_expense = float(expense_result) if expense_result else 0.0
     
-    category_expenses = {}
-    for t in transactions:
-        if t.type == models.TransactionType.EXPENSE:
-            category_expenses[t.category] = category_expenses.get(t.category, 0) + t.amount
+    income_result = db.query(func.sum(models.Transaction.amount)).filter(
+        models.Transaction.owner_id == current_user.id,
+        models.Transaction.type == models.TransactionType.INCOME
+    ).scalar()
+    total_income = float(income_result) if income_result else 0.0
+
+    transactions_count = db.query(models.Transaction).filter(models.Transaction.owner_id == current_user.id).count()
+    
+    category_expenses_query = db.query(
+        models.Transaction.category, func.sum(models.Transaction.amount)
+    ).filter(
+        models.Transaction.owner_id == current_user.id,
+        models.Transaction.type == models.TransactionType.EXPENSE
+    ).group_by(models.Transaction.category).all()
+    
+    category_expenses = {cat: float(amt) for cat, amt in category_expenses_query}
     
     return {
         "balance": total_income - total_expense,
         "total_income": total_income,
         "total_expense": total_expense,
-        "transactions_count": len(transactions),
+        "transactions_count": transactions_count,
         "category_expenses": category_expenses
     }
 
@@ -168,21 +196,19 @@ def upload_screenshot(file: UploadFile = File(...), current_user: models.User = 
         )
         
         extracted_data = json.loads(response.choices[0].message.content)
-
-        # Fix BUG 11: Validate amount is positive
+        
         try:
-            amount = float(extracted_data.get("amount", 0))
-            if amount <= 0:
+            parsed_data = ExtractedTransaction(**extracted_data)
+            if parsed_data.amount <= 0:
                 raise ValueError()
-            extracted_data["amount"] = amount
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=422, detail="Could not extract a valid positive amount from the screenshot.")
+        except (ValidationError, ValueError):
+            raise HTTPException(status_code=422, detail="Could not extract valid transaction details from the screenshot.")
         
         new_transaction = models.Transaction(
-            amount=extracted_data["amount"],
-            category=extracted_data["category"],
-            description=extracted_data["description"],
-            type=models.TransactionType(extracted_data["type"]),
+            amount=parsed_data.amount,
+            category=parsed_data.category,
+            description=parsed_data.description,
+            type=models.TransactionType(parsed_data.type),
             owner_id=current_user.id
         )
         db.add(new_transaction)

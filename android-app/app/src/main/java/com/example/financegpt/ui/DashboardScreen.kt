@@ -31,8 +31,8 @@ fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
 
     LaunchedEffect(Unit) {
         try {
-            dashboardData = RetrofitClient.apiService.getDashboard("Bearer $token")
-            budgets = RetrofitClient.apiService.getBudgets("Bearer $token")
+            dashboardData = RetrofitClient.apiService.getDashboard()
+            budgets = RetrofitClient.apiService.getBudgets()
         } catch (e: Exception) {
             errorMessage = e.message
         }
@@ -148,7 +148,7 @@ fun DashboardScreen(token: String, onLogout: () -> Unit = {}) {
                         coroutineScope.launch {
                             try {
                                 val req = BudgetRequest(newBudgetCategory, amount)
-                                val newBudget = RetrofitClient.apiService.createBudget("Bearer $token", req)
+                                val newBudget = RetrofitClient.apiService.createBudget(req)
                                 budgets = budgets + newBudget
                                 showBudgetDialog = false
                                 newBudgetCategory = ""

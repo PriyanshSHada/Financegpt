@@ -62,18 +62,17 @@ fun ScreenshotUploadScreen(token: String) {
                     uploadStatus = "Uploading and analyzing..."
                     coroutineScope.launch {
                         try {
-                            // Fix BUG 8: Move file I/O off the main thread
+                            // Fix BUG 8: Move file I/O off the main thread and avoid resource leaks
                             val bytes = withContext(Dispatchers.IO) {
-                                val inputStream = context.contentResolver.openInputStream(uri)
-                                val data = inputStream?.readBytes() ?: ByteArray(0)
-                                inputStream?.close()
-                                data
+                                context.contentResolver.openInputStream(uri)?.use { 
+                                    it.readBytes() 
+                                } ?: ByteArray(0)
                             }
 
                             val requestFile = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
                             val body = MultipartBody.Part.createFormData("file", "screenshot.jpg", requestFile)
 
-                            val response = RetrofitClient.apiService.uploadScreenshot("Bearer $token", body)
+                            val response = RetrofitClient.apiService.uploadScreenshot(body)
                             uploadStatus = "Success!\nAmount: ₹${response.amount}\nCategory: ${response.category}\nDesc: ${response.description}"
                         } catch (e: Exception) {
                             uploadStatus = "Error: ${e.message}"

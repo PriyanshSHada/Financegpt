@@ -35,6 +35,10 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val authManager = remember { AuthManager(context) }
         
+        LaunchedEffect(Unit) {
+            com.example.financegpt.network.RetrofitClient.initialize(authManager)
+        }
+        
         var currentScreen by remember { 
             mutableStateOf(if (authManager.isLoggedIn()) ScreenState.MAIN_APP else ScreenState.LOGIN) 
         }

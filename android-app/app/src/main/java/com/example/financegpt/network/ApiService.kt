@@ -12,9 +12,8 @@ import retrofit2.http.Part
 interface ApiService {
     @POST("/chat")
     suspend fun sendChatMessage(
-        @Header("Authorization") token: String,
         @Body request: ChatRequest
-    ): TransactionResponse
+    ): ChatResponse
 
     @POST("/register")
     suspend fun register(
@@ -29,25 +28,19 @@ interface ApiService {
     ): TokenResponse
 
     @GET("/dashboard")
-    suspend fun getDashboard(
-        @Header("Authorization") token: String
-    ): DashboardResponse
+    suspend fun getDashboard(): DashboardResponse
 
     @GET("/budgets")
-    suspend fun getBudgets(
-        @Header("Authorization") token: String
-    ): List<BudgetResponse>
+    suspend fun getBudgets(): List<BudgetResponse>
 
     @POST("/budgets")
     suspend fun createBudget(
-        @Header("Authorization") token: String,
         @Body request: BudgetRequest
     ): BudgetResponse
 
     @Multipart
     @POST("/upload-screenshot")
     suspend fun uploadScreenshot(
-        @Header("Authorization") token: String,
         @retrofit2.http.Part file: okhttp3.MultipartBody.Part
     ): TransactionResponse
 }
