@@ -21,6 +21,15 @@ class ChatGPTResponse(BaseModel):
     reply: str
     extracted_transaction: Optional[ExtractedTransaction] = None
 
+
+def _extract_json(raw: str) -> dict:
+    """Strip markdown code fences that Meta Llama sometimes adds around JSON output."""
+    import re
+    # Remove ```json ... ``` or ``` ... ``` wrappers
+    cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned.strip())
+    return json.loads(cleaned)
+
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FinanceGPT API")
@@ -36,8 +45,15 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Initialize OpenAI Client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI-compatible client pointing at AWS Bedrock
+# Uses the OpenAI SDK with a custom base_url for Bedrock's OpenAI-compatible API
+client = OpenAI(
+    api_key=os.getenv("BEDROCK_API_KEY", "ABSxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+    base_url=os.getenv("BEDROCK_API_BASE", "https://bedrock-mantle.us-east-1.api.aws/v1"),
+)
+
+# Meta Llama model to use via AWS Bedrock
+META_MODEL = os.getenv("META_MODEL", "meta.llama3-3-70b-instruct-v1:0")
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -84,16 +100,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @app.post("/chat", response_model=schemas.ChatResponse)
 def chat_transaction(request: schemas.ChatRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a conversational financial assistant. Reply to the user naturally. If the user mentions a transaction (income or expense), extract it. Output JSON strictly matching this schema: {\"reply\": \"Your conversational response\", \"extracted_transaction\": {\"amount\": float, \"category\": string, \"description\": string, \"type\": \"expense\" or \"income\"} }. If no transaction is mentioned, set \"extracted_transaction\" to null."},
-                {"role": "user", "content": request.message}
-            ],
-            response_format={"type": "json_object"}
+        system_prompt = (
+            "You are a helpful financial assistant. "
+            "Always reply in plain JSON with two keys: "
+            "'reply' (your friendly text response) and "
+            "'extracted_transaction' (null if no money mentioned, otherwise an object with "
+            "'amount' as a number, 'category' as a string, 'description' as a string, "
+            "and 'type' as either 'expense' or 'income'). "
+            "Output raw JSON only, no markdown."
         )
-        
-        extracted_data = json.loads(response.choices[0].message.content)
+        response = client.chat.completions.create(
+            model=META_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": request.message}
+            ]
+        )
+
+        extracted_data = _extract_json(response.choices[0].message.content)
         
         try:
             parsed_data = ChatGPTResponse(**extracted_data)
@@ -181,21 +205,28 @@ def upload_screenshot(file: UploadFile = File(...), current_user: models.User = 
         contents = file.file.read()
         base64_image = base64.b64encode(contents).decode('utf-8')
         
+        # NOTE: Meta Llama vision models on Bedrock support image inputs.
+        # If your chosen model does not support vision, this endpoint will return an error.
+        screenshot_prompt = (
+            "Look at this UPI payment screenshot and extract the transaction. "
+            "Reply with raw JSON only (no markdown) using these keys: "
+            "amount (number), category (string), description (string), "
+            "type ('expense' or 'income')."
+        )
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=META_MODEL,
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Extract the transaction details from this UPI screenshot. Output strictly JSON with keys: amount (float), category (string), description (string), type (string: 'expense' or 'income')."},
+                        {"type": "text", "text": screenshot_prompt},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }
-            ],
-            response_format={"type": "json_object"}
+            ]
         )
-        
-        extracted_data = json.loads(response.choices[0].message.content)
+
+        extracted_data = _extract_json(response.choices[0].message.content)
         
         try:
             parsed_data = ExtractedTransaction(**extracted_data)

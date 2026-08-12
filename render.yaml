@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: financegpt-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free                     # change to 'starter' or higher for production
+    healthCheckPath: /docs         # FastAPI auto-generates /docs; used by Render for health checks
+
+    envVars:
+      # ── AWS Bedrock ────────────────────────────────────────────────────────
+      - key: BEDROCK_API_BASE
+        value: https://bedrock-mantle.us-east-1.api.aws/v1
+
+      - key: BEDROCK_API_KEY
+        sync: false                # Fill this in the Render dashboard — never commit secrets
+
+      - key: META_MODEL
+        value: meta.llama3-3-70b-instruct-v1:0
+
+      # ── Database ───────────────────────────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false                # Paste your Supabase/Render Postgres URL in the dashboard
+
+      # ── JWT ───────────────────────────────────────────────────────────────
+      - key: SECRET_KEY
+        generateValue: true        # Render auto-generates a secure random value
+
+      - key: ALGORITHM
+        value: HS256
+
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
