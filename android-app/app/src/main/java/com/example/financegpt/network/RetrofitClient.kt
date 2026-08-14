@@ -6,8 +6,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    // Production Northflank backend
-    private const val BASE_URL = "https://p01--financegpt--wpzfs7yrpv56.code.run/"
+    // Production backend on Render
+    private const val BASE_URL = "https://financegpt-zp7j.onrender.com/"
 
     lateinit var apiService: ApiService
         private set

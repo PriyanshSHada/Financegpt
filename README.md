@@ -82,9 +82,15 @@ Copy `.env.example` to `.env` and fill in the values:
 
 ```bash
 DATABASE_URL=postgresql://user:password@host:5432/dbname
+# Use Bedrock:
 BEDROCK_API_BASE=https://bedrock-mantle.us-east-1.api.aws/v1
 BEDROCK_API_KEY=your_bedrock_api_key
 META_MODEL=meta.llama3-3-70b-instruct-v1:0
+
+# Or use OpenAI:
+# OPENAI_API_BASE=https://api.openai.com/v1
+# OPENAI_API_KEY=your_openai_api_key
+# OPENAI_MODEL=gpt-4o-mini
 SECRET_KEY=replace_with_random_hex_string
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
@@ -159,6 +165,8 @@ There is a `render.yaml` file configured for Render deployment of the backend. I
 - `SECRET_KEY`
 - `ALGORITHM`
 - `ACCESS_TOKEN_EXPIRE_MINUTES`
+
+If you deploy with OpenAI instead of Bedrock, set `OPENAI_API_KEY` and `OPENAI_MODEL` on the server environment.
 
 ## Notes
 
