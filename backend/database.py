@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
+import re
 from dotenv import load_dotenv
 import logging
 
@@ -24,6 +25,23 @@ if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL + "?sslmode=require"
 elif "sslmode" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?", "?sslmode=require&", 1)
+
+# Handle Supabase connection pooler SSL hostname requirement
+# For connection pooler, we need to specify the actual database hostname for SSL
+if "pooler.supabase.com" in DATABASE_URL:
+    # Try to find the database hostname in the URL (like db.bkxkhxfsejootdbkrgjs.supabase.co)
+    db_match = re.search(r'db\.([a-z0-9]+)\.supabase\.co', DATABASE_URL)
+    if db_match:
+        project_id = db_match.group(1)
+        sslhostname = f"db.{project_id}.supabase.co"
+    else:
+        # Default fallback - user should update this with their actual project ID
+        sslhostname = "db.YOUR_PROJECT_ID.supabase.co"
+    
+    # Add sslhostname parameter if not already present
+    if "sslhostname" not in DATABASE_URL:
+        separator = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = f"{DATABASE_URL}{separator}sslhostname={sslhostname}"
 
 # Log a warning if the connection string looks like it has incorrect format
 if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
