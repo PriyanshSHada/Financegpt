@@ -79,8 +79,11 @@ client, META_MODEL = _build_ai_client()
 def startup_event():
     try:
         models.Base.metadata.create_all(bind=engine)
-    except Exception:
-        logger.exception("Database initialization failed")
+        logger.info("Database tables created/verified successfully")
+    except Exception as e:
+        logger.exception("Database initialization failed - verify DATABASE_URL is correct in environment variables")
+        logger.error("Database URL format should be: postgresql://postgres:PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres")
+        logger.error("For Supabase, ensure the username is 'postgres' (not 'postgres.project-id')")
         raise
 
 @app.get("/health")
