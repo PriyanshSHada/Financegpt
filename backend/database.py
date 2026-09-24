@@ -26,35 +26,16 @@ if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
 elif "sslmode" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?", "?sslmode=require&", 1)
 
-# Handle Supabase connection pooler - psycopg2 compatibility
-# psycopg2 doesn't support sslhostname parameter, so we convert pooler to direct connection
+# Handle Supabase connection - psycopg2 compatibility
+# psycopg2 works better with direct connections in most cases
+# But if using pooler, we'll keep it as pooler for compatibility
+# Direct connections are preferred as they avoid IPv6 issues with pooler->direct conversion
 if "pooler.supabase.com" in DATABASE_URL:
-    # Try to extract project ID from the connection pooler URL
-    db_match = re.search(r'db\.([a-z0-9]+)\.supabase\.co', DATABASE_URL)
-    if db_match:
-        project_id = db_match.group(1)
-    else:
-        # If project ID not in URL, try environment variable
-        project_id = os.getenv("SUPABASE_PROJECT_ID")
-        if not project_id:
-            logging.error(
-                "Could not extract project ID from pooler URL. "
-                "Please set SUPABASE_PROJECT_ID environment variable or use direct connection string.\n"
-                "For psycopg2 compatibility, use direct connection string format:\n"
-                "postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
-            )
-            raise RuntimeError(
-                "SUPABASE_PROJECT_ID environment variable is required when using connection pooler. "
-                "Set it in your Render environment variables."
-            )
-    
-    # Convert pooler URL to direct database URL for psycopg2 compatibility
-    # Replace pooler endpoint with direct db endpoint
-    DATABASE_URL = DATABASE_URL.replace(
-        "aws-1-ap-southeast-1.pooler.supabase.com:6543",
-        f"db.{project_id}.supabase.co:5432"
+    logging.warning(
+        "Using Supabase connection pooler. For psycopg2 compatibility, "
+        "consider using direct connection URL from Supabase Dashboard."
     )
-    logging.info(f"Converted pooler connection to direct connection for psycopg2 compatibility")
+    # Keep pooler URL as-is - let Supabase handle the connection routing
 
 # Log a warning if the connection string looks like it has incorrect format
 if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
@@ -92,7 +73,7 @@ except Exception as e:
         f"\n"
         f"Get your connection string from: Supabase Dashboard → Project Settings → Database → Connection String"
     )
-    raise  # Re-raise the exception to prevent app startup with database issues"
+    raise  # Re-raise the exception to prevent app startup with database issues
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
