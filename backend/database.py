@@ -26,22 +26,27 @@ if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
 elif "sslmode" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?", "?sslmode=require&", 1)
 
-# Handle Supabase connection pooler SSL hostname requirement
-# For connection pooler, we need to specify the actual database hostname for SSL
+# Handle Supabase connection pooler - psycopg2 compatibility
+# psycopg2 doesn't support sslhostname parameter, so we convert pooler to direct connection
 if "pooler.supabase.com" in DATABASE_URL:
-    # Try to find the database hostname in the URL (like db.bkxkhxfsejootdbkrgjs.supabase.co)
+    # Extract project ID from the connection pooler URL
     db_match = re.search(r'db\.([a-z0-9]+)\.supabase\.co', DATABASE_URL)
     if db_match:
         project_id = db_match.group(1)
-        sslhostname = f"db.{project_id}.supabase.co"
+        # Convert pooler URL to direct database URL for psycopg2 compatibility
+        # Replace pooler endpoint with direct db endpoint
+        DATABASE_URL = DATABASE_URL.replace(
+            "aws-1-ap-southeast-1.pooler.supabase.com:6543",
+            f"db.{project_id}.supabase.co:5432"
+        )
+        logging.info(f"Converted pooler connection to direct connection for psycopg2 compatibility")
     else:
-        # Default fallback - user should update this with their actual project ID
-        sslhostname = "db.YOUR_PROJECT_ID.supabase.co"
-    
-    # Add sslhostname parameter if not already present
-    if "sslhostname" not in DATABASE_URL:
-        separator = "&" if "?" in DATABASE_URL else "?"
-        DATABASE_URL = f"{DATABASE_URL}{separator}sslhostname={sslhostname}"
+        # If we can't extract project ID, the user needs to provide direct connection string
+        logging.warning(
+            "Could not extract project ID from pooler URL. "
+            "For psycopg2 compatibility, use direct connection string format:\n"
+            "postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
+        )
 
 # Log a warning if the connection string looks like it has incorrect format
 if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
@@ -65,8 +70,8 @@ except Exception as e:
         f"Common Supabase connection string format for Render:\n"
         f"postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
         f"\n"
-        f"IMPORTANT: For connection pooling, include the project ID in SSL hostname:\n"
-        f"postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&sslhostname=db.bkxkhxfsejootdbkrgjs.supabase.co"
+        f"IMPORTANT: For connection pooling via pooler, the code will automatically convert to direct connection for psycopg2 compatibility.\n"
+        f"Or use direct connection format: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
     )
     # Don't raise - let the app start and try to connect when needed
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
