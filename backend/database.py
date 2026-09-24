@@ -19,6 +19,12 @@ if not DATABASE_URL:
 # Render provides postgres:// URLs; SQLAlchemy 1.4+ requires postgresql://
 DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Add SSL mode parameter for stable connections
+if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL + "?sslmode=require"
+elif "sslmode" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?", "?sslmode=require&", 1)
+
 # Log a warning if the connection string looks like it has incorrect format
 if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
     logging.warning(
