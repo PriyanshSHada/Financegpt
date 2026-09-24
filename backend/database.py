@@ -29,24 +29,32 @@ elif "sslmode" not in DATABASE_URL:
 # Handle Supabase connection pooler - psycopg2 compatibility
 # psycopg2 doesn't support sslhostname parameter, so we convert pooler to direct connection
 if "pooler.supabase.com" in DATABASE_URL:
-    # Extract project ID from the connection pooler URL
+    # Try to extract project ID from the connection pooler URL
     db_match = re.search(r'db\.([a-z0-9]+)\.supabase\.co', DATABASE_URL)
     if db_match:
         project_id = db_match.group(1)
-        # Convert pooler URL to direct database URL for psycopg2 compatibility
-        # Replace pooler endpoint with direct db endpoint
-        DATABASE_URL = DATABASE_URL.replace(
-            "aws-1-ap-southeast-1.pooler.supabase.com:6543",
-            f"db.{project_id}.supabase.co:5432"
-        )
-        logging.info(f"Converted pooler connection to direct connection for psycopg2 compatibility")
     else:
-        # If we can't extract project ID, the user needs to provide direct connection string
-        logging.warning(
-            "Could not extract project ID from pooler URL. "
-            "For psycopg2 compatibility, use direct connection string format:\n"
-            "postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
-        )
+        # If project ID not in URL, try environment variable
+        project_id = os.getenv("SUPABASE_PROJECT_ID")
+        if not project_id:
+            logging.error(
+                "Could not extract project ID from pooler URL. "
+                "Please set SUPABASE_PROJECT_ID environment variable or use direct connection string.\n"
+                "For psycopg2 compatibility, use direct connection string format:\n"
+                "postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
+            )
+            raise RuntimeError(
+                "SUPABASE_PROJECT_ID environment variable is required when using connection pooler. "
+                "Set it in your Render environment variables."
+            )
+    
+    # Convert pooler URL to direct database URL for psycopg2 compatibility
+    # Replace pooler endpoint with direct db endpoint
+    DATABASE_URL = DATABASE_URL.replace(
+        "aws-1-ap-southeast-1.pooler.supabase.com:6543",
+        f"db.{project_id}.supabase.co:5432"
+    )
+    logging.info(f"Converted pooler connection to direct connection for psycopg2 compatibility")
 
 # Log a warning if the connection string looks like it has incorrect format
 if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
@@ -62,18 +70,18 @@ try:
     #     pass
     logging.info("Database connection established successfully")
 except Exception as e:
-    logging.warning(
-        f"Database connection test failed (this may be expected on first startup).\n"
+    logging.error(
+        f"Database connection failed.\n"
         f"Error: {str(e)}\n"
         f"Your DATABASE_URL starts with: {DATABASE_URL[:80]}...\n"
         f"\n"
         f"Common Supabase connection string format for Render:\n"
         f"postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
         f"\n"
-        f"IMPORTANT: For connection pooling via pooler, the code will automatically convert to direct connection for psycopg2 compatibility.\n"
-        f"Or use direct connection format: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
+        f"IMPORTANT: If using connection pooler, make sure SUPABASE_PROJECT_ID is set.\n"
+        f"For direct connection: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
     )
-    # Don't raise - let the app start and try to connect when needed
+    raise  # Re-raise the exception to prevent app startup with database issues
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
