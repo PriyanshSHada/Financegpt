@@ -70,18 +70,29 @@ try:
     #     pass
     logging.info("Database connection established successfully")
 except Exception as e:
+    error_msg = str(e)
     logging.error(
         f"Database connection failed.\n"
-        f"Error: {str(e)}\n"
+        f"Error: {error_msg}\n"
         f"Your DATABASE_URL starts with: {DATABASE_URL[:80]}...\n"
         f"\n"
-        f"Common Supabase connection string format for Render:\n"
-        f"postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
+        f"Common Supabase connection string formats for Render:\n"
         f"\n"
-        f"IMPORTANT: If using connection pooler, make sure SUPABASE_PROJECT_ID is set.\n"
-        f"For direct connection: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require"
+        f"1. Direct connection (recommended for psycopg2):\n"
+        f"   postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
+        f"\n"
+        f"2. Connection pooler (requires SUPABASE_PROJECT_ID env var):\n"
+        f"   postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require\n"
+        f"   Set SUPABASE_PROJECT_ID=bkxkhxfsejootdbkrgjs in environment variables\n"
+        f"\n"
+        f"IMPORTANT: If you get 'Network is unreachable' or IPv6 errors:\n"
+        f"- Use direct connection instead of pooler, OR\n"
+        f"- Set SUPABASE_PROJECT_ID environment variable for pooler connections\n"
+        f"- Make sure your connection string uses 'postgres' as username, not 'postgres.PROJECT_ID'\n"
+        f"\n"
+        f"Get your connection string from: Supabase Dashboard → Project Settings → Database → Connection String"
     )
-    raise  # Re-raise the exception to prevent app startup with database issues
+    raise  # Re-raise the exception to prevent app startup with database issues"
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
