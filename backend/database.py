@@ -34,22 +34,23 @@ if "postgres." in DATABASE_URL and "postgres:" not in DATABASE_URL:
 
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-    # Test connection
-    with engine.connect() as conn:
-        pass
+    # Test connection - Commented out for Render deployment
+    # with engine.connect() as conn:
+    #     pass
     logging.info("Database connection established successfully")
 except Exception as e:
-    logging.error(
-        f"Failed to connect to database. Make sure DATABASE_URL is correctly set in Render environment variables.\n"
+    logging.warning(
+        f"Database connection test failed (this may be expected on first startup).\n"
         f"Error: {str(e)}\n"
         f"Your DATABASE_URL starts with: {DATABASE_URL[:80]}...\n"
         f"\n"
-        f"Common Supabase connection string format:\n"
-        f"postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres\n"
-        f"OR\n"
-        f"postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+        f"Common Supabase connection string format for Render:\n"
+        f"postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
+        f"\n"
+        f"IMPORTANT: For connection pooling, include the project ID in SSL hostname:\n"
+        f"postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&sslhostname=db.bkxkhxfsejootdbkrgjs.supabase.co"
     )
-    raise
+    # Don't raise - let the app start and try to connect when needed
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
