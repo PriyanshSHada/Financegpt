@@ -21,23 +21,16 @@ The error occurred because the DATABASE_URL environment variable was not correct
 3. Click on the **Environment** tab
 4. Add or update the `DATABASE_URL` variable with your connection string
 
-### 3. Important: Fix the Connection String Format
+### 3. Keep the Supabase Connection Details
 
-Supabase connection strings often have the format:
-```
-postgresql://postgres.bkxkhxfsejootdbkrgjs:password@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
-```
+Copy the connection string from the Supabase dashboard without changing its
+pooler host, port, or username. The backend selects `psycopg2` for SQLAlchemy
+while preserving those connection details.
 
-This is **INCORRECT**. The username should be just `postgres`, not `postgres.project-id`.
-
-**Correct format:**
+For a direct connection, use the direct connection string from Supabase project
+settings (typically port `5432`):
 ```
-postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
-```
-
-Or use the direct connection string (find in Supabase project settings):
-```
-postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:6543/postgres
+postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres
 ```
 
 ### 4. Additional Steps

@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 import re
@@ -17,8 +18,11 @@ if not DATABASE_URL:
         "Get your connection string from Supabase Dashboard → Project Settings → Database → Connection String."
     )
 
-# Render provides postgres:// URLs; SQLAlchemy 1.4+ requires postgresql://
-DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# Select psycopg2 explicitly; SQLAlchemy otherwise defaults to psycopg 3.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len("postgres://"):]
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len("postgresql://"):]
 
 # Add SSL mode parameter for stable connections
 if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
@@ -26,14 +30,11 @@ if "sslmode" not in DATABASE_URL and "?" not in DATABASE_URL:
 elif "sslmode" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?", "?sslmode=require&", 1)
 
-# Handle Supabase connection - psycopg2 compatibility
-# psycopg2 works better with direct connections in most cases
-# But if using pooler, we'll keep it as pooler for compatibility
-# Direct connections are preferred as they avoid IPv6 issues with pooler->direct conversion
+# Keep Supabase pooler endpoints unchanged; psycopg2 supports the pooler URL.
 if "pooler.supabase.com" in DATABASE_URL:
     logging.warning(
-        "Using Supabase connection pooler. For psycopg2 compatibility, "
-        "consider using direct connection URL from Supabase Dashboard."
+        "Using Supabase connection pooler with psycopg2. "
+        "The configured pooler endpoint will be used as provided."
     )
     # Keep pooler URL as-is - let Supabase handle the connection routing
 
@@ -55,20 +56,19 @@ except Exception as e:
     logging.error(
         f"Database connection failed.\n"
         f"Error: {error_msg}\n"
-        f"Your DATABASE_URL starts with: {DATABASE_URL[:80]}...\n"
+        f"Your DATABASE_URL starts with: {make_url(DATABASE_URL).render_as_string(hide_password=True)[:80]}...\n"
         f"\n"
         f"Common Supabase connection string formats for Render:\n"
         f"\n"
         f"1. Direct connection (recommended for psycopg2):\n"
         f"   postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres?sslmode=require\n"
         f"\n"
-        f"2. Connection pooler (requires SUPABASE_PROJECT_ID env var):\n"
+        f"2. Connection pooler (keep the pooler host and port from Supabase):\n"
         f"   postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require\n"
-        f"   Set SUPABASE_PROJECT_ID=bkxkhxfsejootdbkrgjs in environment variables\n"
         f"\n"
         f"IMPORTANT: If you get 'Network is unreachable' or IPv6 errors:\n"
         f"- Use direct connection instead of pooler, OR\n"
-        f"- Set SUPABASE_PROJECT_ID environment variable for pooler connections\n"
+        f"- Verify the pooler host, port, and username against the Supabase dashboard\n"
         f"- Make sure your connection string uses 'postgres' as username, not 'postgres.PROJECT_ID'\n"
         f"\n"
         f"Get your connection string from: Supabase Dashboard → Project Settings → Database → Connection String"
