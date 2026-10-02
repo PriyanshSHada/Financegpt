@@ -23,23 +23,18 @@ The error occurred because the DATABASE_URL environment variable was not correct
 
 ### 3. Keep the Supabase Connection Details
 
-Copy the connection string from the Supabase dashboard without changing its
-pooler host, port, or username. The backend selects `psycopg2` for SQLAlchemy
-while preserving those connection details.
-
-For a direct connection, use the direct connection string from Supabase project
-settings (typically port `5432`):
-```
-postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres
-```
+For a persistent Render web service, use the **Session Pooler** connection
+string shown in Supabase under **Connect**. Render may not be able to reach the
+direct database endpoint over IPv6. Copy the pooler host, port, and username
+exactly as supplied; the username may include the project reference. The backend
+selects `psycopg2` without rewriting those URL components.
 
 ### 4. Additional Steps
 
-#### Allow External Connections in Supabase
-1. In Supabase Dashboard → Project Settings → Database
-2. Go to **Connection Pooling**
-3. Ensure the mode is set to **Transaction** (recommended for web apps)
-4. Note the port (usually 6543)
+#### Choose the Pooler Mode
+Use Session Pooler for this persistent Render service. Transaction Pooler is
+intended for short-lived/serverless connections; if you select it, use its exact
+host, port, and username from the Supabase dashboard.
 
 #### Test Your Database Connection Locally
 ```bash
@@ -55,7 +50,7 @@ The following improvements were added to prevent this issue:
 
 1. **Enhanced error messages** in `database.py` with clear instructions for Supabase setup
 2. **Connection validation** on startup to catch configuration errors early
-3. **Connection string format warning** to detect common mistakes
+3. **Pooler URL handling** preserves the host, port, username, and query parameters
 4. **Improved logging** with specific guidance for the correct username format
 
 ## Files Modified
@@ -68,7 +63,7 @@ The following improvements were added to prevent this issue:
 ## Common Issues and Fixes
 
 ### Issue: "tenant/user not found"
-**Fix:** Change the username from `postgres.project-id` to `postgres`
+**Fix:** Use the username shown in the selected Supabase connection string. Pooler usernames may include the project reference.
 
 ### Issue: "connection refused"
 **Fix:** Check that your Supabase project is active and accepting connections

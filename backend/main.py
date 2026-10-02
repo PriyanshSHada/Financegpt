@@ -82,8 +82,21 @@ def startup_event():
         logger.info("Database tables created/verified successfully")
     except Exception as e:
         logger.exception("Database initialization failed - verify DATABASE_URL is correct in environment variables")
-        logger.error("Database URL format should be: postgresql://postgres:PASSWORD@db.YOUR_PROJECT_ID.supabase.co:5432/postgres")
-        logger.error("For Supabase, ensure the username is 'postgres' (not 'postgres.project-id')")
+        error_text = str(e).lower()
+        if "network is unreachable" in error_text or "no route to host" in error_text:
+            logger.error(
+                "Render cannot reach the Supabase direct endpoint over IPv6. "
+                "Use the Supabase Session Pooler URL for this persistent service."
+            )
+            logger.error(
+                "Copy the pooler host, port, and username exactly from Supabase; "
+                "do not rewrite them."
+            )
+        else:
+            logger.error(
+                "Verify DATABASE_URL against the connection string in Supabase. "
+                "Keep the supplied pooler username, host, and port unchanged."
+            )
         raise
 
 @app.get("/health")

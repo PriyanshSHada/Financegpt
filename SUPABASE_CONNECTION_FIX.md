@@ -13,14 +13,20 @@ adds `sslmode=require`.
 
 ## Connection String Formats
 
-### Connection Pooler
+### Session Pooler for Render
+
+Render may not be able to route to Supabase's direct IPv6 endpoint. For a
+persistent Render web service, use the **Session Pooler** connection string
+shown in Supabase under **Connect**. Copy its host, port, and username exactly;
+the pooler username may include the project reference. The backend only selects
+the psycopg2 driver and does not rewrite those URL components.
+
 ```
-postgresql://postgres:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require
+postgresql://POOLER_USER:YOUR_PASSWORD@POOLER_HOST:POOLER_PORT/postgres?sslmode=require
 ```
 
-Use the pooler hostname, port, and username exactly as supplied by Supabase.
-Direct connections are also supported; use the direct connection details shown
-in the Supabase dashboard.
+Transaction Pooler URLs can also be used when appropriate; use the exact URL
+Supabase provides for the selected pooler mode.
 
 ### Direct Connection
 ```
